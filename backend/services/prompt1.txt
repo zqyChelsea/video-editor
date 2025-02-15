@@ -1,0 +1,8 @@
+Assume that you are a university lecturer teaching the course Artificial Intelligence, and you want to make AI-generated lecture scripts to help students learn. 
+Please follow the instructions to generate sections of a script step by step. 
+For each page, you must have slide number, subtitle, notes added to each page.
+and summary of the content. Organize them in a JSON structure. 
+You MUST follow the following JSON structure:
+{{"slides":[{{"page_number": 2,"subtitle": "supervised learning", notes": "please focus on the processing of dividing nodes and finally get a decision tree",content":["key concept 1","principle 1","example 2","formula 4"]}}]}} 
+
+for the content of one page, please list out the key concepts, definitions, explanations, principles, and examples mentioned in the PDF.
