@@ -13,8 +13,8 @@ function UploadPage() {
 
   const handleFileUpload = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
-      setMessage('文件大小不能超过 10MB');
+    if (selectedFile && selectedFile.size > 30 * 1024 * 1024) {
+      setMessage('文件大小不能超过 30MB');
       return;
     }
     setFile(selectedFile);
@@ -79,88 +79,113 @@ function UploadPage() {
   const renderOutline = () => {
     if (!outline) return null;
     
-    const outlineData = cleanJsonString(outline);
-    if (!outlineData) {
-      return <div className="error-message">大纲格式错误</div>;
-    }
+    let outlineData;
+    try {
+      // 如果已经是对象，直接使用
+      if (typeof outline === 'object') {
+        outlineData = outline;
+      } else {
+        // 尝试清理和解析 JSON 字符串
+        let cleanedStr = outline;
+        if (cleanedStr.includes('```json')) {
+          cleanedStr = cleanedStr.replace(/```json\s*/, '').replace(/\s*```\s*$/, '');
+        }
+        outlineData = JSON.parse(cleanedStr);
+      }
 
-    // 检查数据结构
-    const slides = outlineData.slides || [];
-    
-    return (
-      <div className="outline-container">
-        <h2>演讲大纲</h2>
-        {slides.map((slide, index) => (
-          <div key={index} className="outline-slide">
-            <h3>第 {slide.page_number || (index + 1)} 页</h3>
-            {slide.subtitle && <h4>{slide.subtitle}</h4>}
-            <div className="slide-content">
-              {slide.notes && (
-                <div className="slide-notes">
-                  <strong>备注：</strong> {slide.notes}
-                </div>
-              )}
-              <div className="slide-points">
-                {Array.isArray(slide.content) ? (
-                  <>
-                    <strong>要点：</strong>
-                    <ul>
-                      {slide.content.map((point, i) => (
-                        <li key={i}>{point}</li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p>{slide.content}</p>
+      // 验证数据结构
+      if (!outlineData || !outlineData.slides) {
+        console.log('大纲数据:', outlineData);
+        return <div className="error-message">大纲数据结构不完整</div>;
+      }
+
+      // 继续渲染大纲...
+      return (
+        <div className="outline-container">
+          <h2>演讲大纲</h2>
+          {outlineData.slides.map((slide, index) => (
+            <div key={index} className="outline-slide">
+              <h3>第 {slide.page_number || (index + 1)} 页</h3>
+              {slide.subtitle && <h4>{slide.subtitle}</h4>}
+              <div className="slide-content">
+                {slide.notes && (
+                  <div className="slide-notes">
+                    <strong>备注：</strong> {slide.notes}
+                  </div>
                 )}
+                <div className="slide-points">
+                  {Array.isArray(slide.content) ? (
+                    <>
+                      <strong>要点：</strong>
+                      <ul>
+                        {slide.content.map((point, i) => (
+                          <li key={i}>{point}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p>{slide.content}</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        <button 
-          onClick={handleGenerateScript}
-          className="generate-script-btn"
-          disabled={isLoading}
-        >
-          {isLoading ? '正在生成脚本...' : '开始生成脚本'}
-        </button>
-      </div>
-    );
+          ))}
+          <button 
+            onClick={handleGenerateScript}
+            className="generate-script-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? '正在生成脚本...' : '开始生成脚本'}
+          </button>
+        </div>
+      );
+    } catch (error) {
+      console.log('原始大纲数据:', outline);
+      console.error('处理大纲错误:', error);
+      return <div className="error-message">处理大纲时出错: {error.message}</div>;
+    }
   };
 
   const handleGenerateScript = async () => {
     try {
-      setIsLoading(true);
-      const cleanedOutline = cleanJsonString(outline);
-      
-      const response = await fetch('http://localhost:5000/api/generate-script', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pptContent: pptContent,
-          outline: cleanedOutline
-        }),
-      });
+        setIsLoading(true);
+        console.log('发送请求数据:', {
+            pptContent: pptContent,
+            outline: outline
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        const response = await fetch('http://localhost:5000/api/generate-script', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                pptContent: pptContent,
+                outline: cleanJsonString(outline),  // 确保数据格式正确
+                fileId: 1  // 如果需要fileId，从之前的上传响应中获取
+            }),
+        });
 
-      const data = await response.json();
-      navigate('/script-editor', { 
-        state: { 
-          script: data.script,
-          pptContent: pptContent,
-          outline: cleanedOutline
-        } 
-      });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('生成脚本响应:', data);
+
+        navigate('/script-editor', { 
+            state: { 
+                script: data.script,
+                pptContent: pptContent,
+                outline: outline
+            } 
+        });
     } catch (error) {
-      console.error('生成脚本错误:', error);
-      setMessage('生成脚本失败：' + error.message);
+        console.error('生成脚本错误:', error);
+        setMessage('生成脚本失败：' + error.message);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 

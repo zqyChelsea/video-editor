@@ -2,7 +2,9 @@ Assume that you are a university lecturer teaching the course Artificial Intelli
 Please follow the instructions to generate sections of a script step by step. 
 For each page, you must have slide number, subtitle, notes added to each page.
 and summary of the content. Organize them in a JSON structure. 
-You MUST follow the following JSON structure:
+You MUST follow the following JSON template:
 {{"slides":[{{"page_number": 2,"subtitle": "supervised learning", notes": "please focus on the processing of dividing nodes and finally get a decision tree",content":["key concept 1","principle 1","example 2","formula 4"]}}]}} 
-
+You MUST cover every page in the generated structure.
+The output JSON structure should never include [ and ].
+There should NEVER exist ```json in your output json structure.
 for the content of one page, please list out the key concepts, definitions, explanations, principles, and examples mentioned in the PDF.

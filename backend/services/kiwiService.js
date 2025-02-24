@@ -6,6 +6,28 @@ const { spawn } = require('child_process');
 const API_URL = "https://api.kiwiai.cc/v1/chat/completions";
 const API_KEY = "sk-BgKY1jaYh7yLFIRGW06yOziHg21pDcvwGqLJGGHDmKbbtEQz";
 
+
+const axiosInstance = axios.create({
+    timeout: 60000,  // 增加超时时间到60秒
+    headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json'
+    }
+});
+
+
+const retryRequest = async (fn, retries = 3, delay = 2000) => {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries === 0) throw error;
+        
+        console.log(`请求失败，${retries}次重试后重新尝试...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return retryRequest(fn, retries - 1, delay * 1.5);
+    }
+};
+
 async function readPromptFile(filename) {
     try {
         const promptPath = path.join(__dirname, filename);
@@ -115,8 +137,9 @@ exports.generateOutline = async function(pptContent) {
         const prompt = await fs.readFile(promptPath, 'utf8');
         
         console.log('发送请求到 Kiwi AI');
-        const response = await axios.post(API_URL, {
-            model: "gpt-4o",
+        
+        const makeRequest = () => axiosInstance.post(API_URL, {
+            model: "gpt-3.5-turbo",
             messages: [
                 {
                     role: "system",
@@ -127,12 +150,10 @@ exports.generateOutline = async function(pptContent) {
                     content: JSON.stringify(pptContent)
                 }
             ]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json'
-            }
         });
+
+        // 使用重试机制发送请求
+        const response = await retryRequest(makeRequest);
 
         console.log('Kiwi AI 响应:', response.data);
         return response.data.choices[0].message.content;
@@ -141,7 +162,17 @@ exports.generateOutline = async function(pptContent) {
         if (error.response) {
             console.error('API 错误响应:', error.response.data);
         }
-        throw new Error('生成大纲失败: ' + error.message);
+        
+        let errorMessage = '生成大纲失败';
+        if (error.code === 'ECONNABORTED') {
+            errorMessage += ': 请求超时，请稍后重试';
+        } else if (error.response && error.response.status === 504) {
+            errorMessage += ': 服务器响应超时，请稍后重试';
+        } else {
+            errorMessage += ': ' + (error.message || '未知错误');
+        }
+        
+        throw new Error(errorMessage);
     }
 };
 
@@ -156,7 +187,8 @@ exports.generateScript = async function(pptContent, outline) {
         const prompt = await fs.readFile(promptPath, 'utf8');
         
         console.log('发送请求到 Kiwi AI');
-        const response = await axios.post(API_URL, {
+        
+        const makeRequest = () => axiosInstance.post(API_URL, {
             model: "gpt-3.5-turbo",
             messages: [
                 {
@@ -171,12 +203,10 @@ exports.generateScript = async function(pptContent, outline) {
                     })
                 }
             ]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json'
-            }
         });
+
+        // 使用重试机制发送请求
+        const response = await retryRequest(makeRequest);
 
         console.log('Kiwi AI 响应:', response.data);
         return response.data.choices[0].message.content;
@@ -185,6 +215,17 @@ exports.generateScript = async function(pptContent, outline) {
         if (error.response) {
             console.error('API 错误响应:', error.response.data);
         }
-        throw new Error('生成脚本失败: ' + error.message);
+        
+        // 提供更友好的错误信息
+        let errorMessage = '生成脚本失败';
+        if (error.code === 'ECONNABORTED') {
+            errorMessage += ': 请求超时，请稍后重试';
+        } else if (error.response && error.response.status === 504) {
+            errorMessage += ': 服务器响应超时，请稍后重试';
+        } else {
+            errorMessage += ': ' + (error.message || '未知错误');
+        }
+        
+        throw new Error(errorMessage);
     }
 }; 

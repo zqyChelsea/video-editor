@@ -9,6 +9,9 @@ The lecture script should be organized slide by slide, stored in a new JSON form
     ...
   ]
 }
+You MUST cover every page in the generated structure.
+The output JSON structure should never include [ and ]
+There should never exist ```json in your output json structure.
 Begin or conclude pages briefly with a transition that links it to the previous or next topic. For example, after discussing a key concept, you might say, "Having established this foundation, let’s explore how it applies in real-world scenarios."
 For each page, you need to generate the script based on the original slides and the structure given, i.e. key concepts, explanation, application examples. The style should be engaging, easy-to-under, while maintaining professional. Provide thorough, yet concise explanations of each concept. Avoid overly technical jargon unless necessary, and aim for clarity. For example, if discussing neural networks, you might say, "Neural networks mimic the human brain's structure and function, allowing computers to learn from data in a way that resembles human reasoning."
 You should also include practical applications or case studies relevant to the content. For instance, when discussing classification algorithms, you could mention, “Spam detection in machine learning typically involves using classification algorithms to distinguish between spam and non-spam emails. First, a dataset of labeled emails is collected, with each email marked as either spam or ham (non-spam). Features are then extracted from the emails, such as the frequency of certain words, the presence of links, and metadata like the sender's address. A machine learning model, such as a Naive Bayes classifier or a support vector machine, is trained on this dataset. Once trained, the model can predict the category of new emails based on their features, effectively filtering out unwanted messages.”

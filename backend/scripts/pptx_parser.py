@@ -1,6 +1,9 @@
 from pptx import Presentation
 import sys
 import os
+sys.stdout.reconfigure(encoding='utf-8') 
+
+
 
 def extract_text_from_pptx(pptx_path, output_path):
     try:

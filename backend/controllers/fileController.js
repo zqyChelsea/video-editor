@@ -1,47 +1,79 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { parsePPTFile, generateOutline, generateScript } = require('../services/kiwiService');
-
+const pool = require('../database');
 
 let scripts = {};  // key: 脚本ID, value: 脚本内容
 
 exports.uploadFile = async (req, res) => {
+    let connection;
+    let fileId;
+
     try {
         if (!req.file) {
-            return res.status(400).json({ error: '没有文件上传' });
+            return res.status(400).json({ error: '没有上传文件' });
         }
 
+        connection = await pool.getConnection();
         
-        const pptContent = await parsePPTFile(req.file.path);
+        // 保存文件信息到数据库
+        const [result] = await connection.execute(
+            'INSERT INTO files (original_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?)',
+            [
+                req.file.originalname,
+                req.file.path,
+                req.file.mimetype.substring(0, 50), // 限制类型长度
+                req.file.size
+            ]
+        );
+
+        fileId = result.insertId;
+
+        // 解析PPT文件
+        const outputPath = path.join(__dirname, '../temp', `${fileId}_output.txt`);
+        const pptContent = await parsePPTFile(req.file.path, outputPath);
+
+        // 生成大纲
         const outline = await generateOutline(pptContent);
+        console.log('生成的大纲:', outline);
 
-        
-        const outlinesDir = path.join(__dirname, '../../outlines');
-        try {
-            await fs.mkdir(outlinesDir, { recursive: true });
-        } catch (err) {
-            console.log('outlines 目录已存在');
-        }
-
-        
-        const outlineFileName = `outline_${Date.now()}.json`;
-        const outlinePath = path.join(outlinesDir, outlineFileName);
-        await fs.writeFile(outlinePath, JSON.stringify(outline, null, 2));
+        // 更新数据库中的大纲
+        await connection.execute(
+            'UPDATE files SET outline_json = ?, status = ? WHERE id = ?',
+            [outline, 'processed', fileId]
+        );
 
         res.json({
-            message: '文件上传成功，大纲已生成',
+            message: '文件上传成功',
+            fileId: fileId,
             data: {
                 outline: outline,
-                outlineFile: outlineFileName,
-                pptContent: pptContent // 可选：如果需要在前端显示PPT内容
+                pptContent: pptContent
             }
         });
+
     } catch (error) {
-        console.error('文件处理错误:', error);
+        console.error('处理上传文件错误:', error);
+        
+        // 如果fileId存在，更新错误状态
+        if (fileId && connection) {
+            try {
+                await connection.execute(
+                    'UPDATE files SET status = ? WHERE id = ?',
+                    ['error', fileId]
+                );
+            } catch (updateError) {
+                console.error('更新状态错误:', updateError);
+            }
+        }
+
         res.status(500).json({
-            error: '文件处理失败',
-            details: error.message
+            error: '处理文件失败: ' + error.message
         });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
     }
 };
 
@@ -70,27 +102,47 @@ exports.generateAudio = (req, res) => {
 };
 
 exports.generateScript = async (req, res) => {
+    const { fileId, pptContent, outline } = req.body;
+    let connection;
+
     try {
-        const { pptContent, outline } = req.body;
-        
-        if (!pptContent || !outline) {
-            return res.status(400).json({ 
-                error: '缺少必要的参数' 
+        if (!fileId || !pptContent || !outline) {
+            return res.status(400).json({
+                error: '缺少必要参数'
             });
         }
 
-        console.log('开始生成脚本');
-        const script = await generateScript(pptContent, outline);
+        connection = await pool.getConnection();
         
-        res.json({ 
+        // 生成脚本
+        const script = await generateScript(pptContent, outline);
+        console.log('生成的脚本:', script); // 添加日志
+
+        // 确保script不是undefined
+        if (!script) {
+            throw new Error('脚本生成失败');
+        }
+
+        // 更新数据库中的脚本
+        await connection.execute(
+            'UPDATE files SET script_json = ? WHERE id = ?',
+            [JSON.stringify(script), fileId] // 确保存储为JSON字符串
+        );
+
+        res.json({
             message: '脚本生成成功',
-            script: script 
+            script: script
         });
+
     } catch (error) {
         console.error('生成脚本错误:', error);
-        res.status(500).json({ 
-            error: '生成脚本失败: ' + error.message 
+        res.status(500).json({
+            error: '生成脚本失败: ' + error.message
         });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
     }
 };
 
@@ -116,5 +168,32 @@ exports.regenerateScript = async (req, res) => {
         res.status(500).json({ 
             error: '重新生成脚本失败: ' + error.message 
         });
+    }
+};
+
+// 获取文件信息
+exports.getFileInfo = async (req, res) => {
+    const fileId = req.params.id;
+    
+    const connection = await pool.getConnection();
+    try {
+        const [rows] = await connection.execute(
+            'SELECT * FROM files WHERE id = ?',
+            [fileId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: '文件不存在' });
+        }
+
+        res.json(rows[0]);
+
+    } catch (error) {
+        console.error('获取文件信息错误:', error);
+        res.status(500).json({
+            error: '获取文件信息失败: ' + error.message
+        });
+    } finally {
+        connection.release();
     }
 }; 

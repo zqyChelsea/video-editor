@@ -1,8 +1,20 @@
 const express = require('express');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 const router = express.Router();
 const fileController = require('../controllers/fileController');
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/')
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+    }
+});
+
+const upload = multer({ storage: storage });
 
 // 文件上传路由
 router.post('/upload', upload.single('file'), fileController.uploadFile);
@@ -21,5 +33,7 @@ router.post('/generate-script', fileController.generateScript);
 
 // 添加重新生成脚本路由
 router.post('/regenerate-script', fileController.regenerateScript);
+
+router.get('/files/:id', fileController.getFileInfo);
 
 module.exports = router; 
