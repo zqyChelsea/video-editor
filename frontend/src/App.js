@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import './App.css';
+import HistoryPage from './pages/HistoryPage';
 
 // 上传页面组件
 function UploadPage() {
@@ -13,8 +14,8 @@ function UploadPage() {
 
   const handleFileUpload = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile && selectedFile.size > 30 * 1024 * 1024) {
-      setMessage('文件大小不能超过 30MB');
+    if (selectedFile && selectedFile.size > 50 * 1024 * 1024) {
+      setMessage('文件大小不能超过 50MB');
       return;
     }
     setFile(selectedFile);
@@ -330,9 +331,16 @@ function ScriptEditor() {
 function App() {
   return (
     <Router>
+      <nav className="main-nav">
+        <ul>
+          <li><Link to="/">上传文件</Link></li>
+          <li><Link to="/history">生成历史</Link></li>
+        </ul>
+      </nav>
       <Routes>
         <Route path="/" element={<UploadPage />} />
         <Route path="/script-editor" element={<ScriptEditor />} />
+        <Route path="/history" element={<HistoryPage />} />
       </Routes>
     </Router>
   );

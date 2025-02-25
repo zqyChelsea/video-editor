@@ -14,7 +14,12 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+    dest: 'uploads/',
+    limits: {
+        fileSize: 50 * 1024 * 1024, // 100MB 限制
+    }
+});
 
 // 文件上传路由
 router.post('/upload', upload.single('file'), fileController.uploadFile);
@@ -35,5 +40,8 @@ router.post('/generate-script', fileController.generateScript);
 router.post('/regenerate-script', fileController.regenerateScript);
 
 router.get('/files/:id', fileController.getFileInfo);
+
+// 获取所有文件列表
+router.get('/files', fileController.getAllFiles);
 
 module.exports = router; 

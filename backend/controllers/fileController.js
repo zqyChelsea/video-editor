@@ -196,4 +196,46 @@ exports.getFileInfo = async (req, res) => {
     } finally {
         connection.release();
     }
+};
+
+// 添加新方法
+exports.getAllFiles = async (req, res) => {
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute(
+            `SELECT 
+                id,
+                original_name,
+                upload_time,
+                status,
+                outline_json,
+                script_json
+             FROM files 
+             ORDER BY upload_time DESC`
+        );
+
+        // 处理每个文件的数据
+        const processedRows = rows.map(row => ({
+            ...row,
+            created_at: row.upload_time,
+            outline: row.outline_json ? JSON.parse(row.outline_json) : null,
+            script: row.script_json ? JSON.parse(row.script_json) : null,
+            // 移除原始 JSON 字符串
+            outline_json: undefined,
+            script_json: undefined,
+            upload_time: undefined
+        }));
+
+        res.json(processedRows);
+    } catch (error) {
+        console.error('获取所有文件错误:', error);
+        res.status(500).json({
+            error: '获取文件列表失败: ' + error.message
+        });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
 }; 

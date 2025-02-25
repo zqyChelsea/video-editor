@@ -5,8 +5,9 @@ const cors = require('cors');
 const app = express();
 const port = 5000;
 
-// 解析 JSON 请求体
-app.use(express.json());
+// 增加请求体大小限制
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // 使用 CORS 中间件，允许所有来源的请求
 app.use(cors());
